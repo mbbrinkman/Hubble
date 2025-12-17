@@ -1,0 +1,67 @@
+# Data files (too large for git)
+data/raw/
+data/proc/
+!data/raw/.gitkeep
+!data/proc/.gitkeep
+
+# Model files (too large for git)
+models/*.pt
+models/*.pkl
+!models/.gitkeep
+
+# Results (generated)
+results/
+!results/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# mypy
+.mypy_cache/
+
+# OS
+.DS_Store
+Thumbs.db

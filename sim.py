@@ -1,36 +1,154 @@
 """
 sim.py
 ------
-Generate 300 000 Sobol points in parameter space and compute their
-summary vectors *one by one* (simplicity > speed). Saves train.pt
-containing the full tensors \u03b8 and x.
+Training data generation for the normalizing flow.
+
+Generates Sobol quasi-random samples in parameter space and computes
+their summary vectors using the forward model.
+
+Usage:
+    python sim.py
+    # or via CLI: hubble simulate
 """
 
-import torch, sobol_seq, h5py, pickle, forward
+import torch
+import sobol_seq
+import h5py
 
-device = torch.device("cuda")
+import forward
+from config import config, paths, DEVICE, logger, set_seed
 
-# Parameter bounds :  \u03b8 = (H0, \u03a9m, \u03a9de, w0, wa)
-\u03b8_min = torch.tensor([50., 0.30, 0.70, -1.0,  0.0], device=device)
-\u03b8_max = torch.tensor([90., 0.40, 0.60, -0.5,  0.5], device=device)
 
-N = 300_000
-sob = torch.tensor(sobol_seq.i4_sobol_generate(5, N), device=device)
-\u03b8_all = sob * (\u03b8_max - \u03b8_min) + \u03b8_min             # shape (N,5)
+def load_observations() -> dict:
+    """
+    Load processed observations and residual functions.
 
-# Load obs arrays + residual functions
-with h5py.File("../data/proc/obs.h5", "r") as f:
-    obs_arrays = {k: torch.tensor(f[k][...], device=device) for k in f}
-callbacks = torch.load("../data/proc/residual_fns.pt")
-obs = {**obs_arrays, **callbacks}
+    Returns
+    -------
+    dict
+        Combined dictionary with observation arrays and residual callables.
+    """
+    if not paths.obs_h5.exists():
+        raise FileNotFoundError(
+            f"Processed observations not found at {paths.obs_h5}. "
+            "Run 'python prep.py' first."
+        )
 
-# Compute summary vectors one by one (simple but slow)
-x_list = []
-for i, \u03b8 in enumerate(\u03b8_all):
-    if i % 5000 == 0:
-        print(f"{i}/{N} done")
-    x_list.append(forward.summary_vector(\u03b8, obs))
-x_all = torch.stack(x_list)                      # shape (N, Dx)
+    if not paths.residual_fns.exists():
+        raise FileNotFoundError(
+            f"Residual functions not found at {paths.residual_fns}. "
+            "Run 'python prep.py' first."
+        )
 
-torch.save({"\u03b8": \u03b8_all, "x": x_all}, "../data/proc/train.pt")
-print("sim.py finished: wrote train.pt")
+    logger.info(f"Loading observations from {paths.obs_h5}")
+    with h5py.File(paths.obs_h5, "r") as f:
+        obs_arrays = {k: torch.tensor(f[k][...], device=DEVICE) for k in f}
+
+    callbacks = torch.load(paths.residual_fns)
+    return {**obs_arrays, **callbacks}
+
+
+def generate_sobol_samples(n_samples: int) -> torch.Tensor:
+    """
+    Generate Sobol quasi-random samples in the parameter space.
+
+    Parameters
+    ----------
+    n_samples : int
+        Number of samples to generate.
+
+    Returns
+    -------
+    torch.Tensor
+        Parameter samples, shape (n_samples, 5).
+    """
+    θ_min = torch.tensor(config.physics.theta_min, device=DEVICE)
+    θ_max = torch.tensor(config.physics.theta_max, device=DEVICE)
+
+    # Generate Sobol sequence in [0, 1]^5
+    sob = torch.tensor(
+        sobol_seq.i4_sobol_generate(5, n_samples),
+        dtype=torch.float32,
+        device=DEVICE
+    )
+
+    # Scale to parameter bounds
+    θ_all = sob * (θ_max - θ_min) + θ_min
+
+    logger.info(f"Generated {n_samples:,} Sobol samples in parameter space")
+    logger.info(f"  θ_min = {config.physics.theta_min}")
+    logger.info(f"  θ_max = {config.physics.theta_max}")
+
+    return θ_all
+
+
+def compute_summary_vectors(θ_all: torch.Tensor, obs: dict, batch_size: int = 1000) -> torch.Tensor:
+    """
+    Compute summary vectors for all parameter samples.
+
+    Parameters
+    ----------
+    θ_all : torch.Tensor
+        All parameter samples, shape (N, 5).
+    obs : dict
+        Observation data dictionary.
+    batch_size : int
+        Number of samples to process between progress updates.
+
+    Returns
+    -------
+    torch.Tensor
+        Summary vectors, shape (N, D_x).
+    """
+    n_samples = len(θ_all)
+    logger.info(f"Computing {n_samples:,} summary vectors...")
+
+    x_list = []
+    for i, θ in enumerate(θ_all):
+        if i % batch_size == 0:
+            pct = 100 * i / n_samples
+            logger.info(f"  Progress: {i:,}/{n_samples:,} ({pct:.1f}%)")
+        x_list.append(forward.summary_vector(θ, obs))
+
+    logger.info(f"  Progress: {n_samples:,}/{n_samples:,} (100.0%)")
+
+    return torch.stack(x_list)
+
+
+def run(n_samples: int = None) -> None:
+    """
+    Run the full simulation pipeline.
+
+    Parameters
+    ----------
+    n_samples : int, optional
+        Number of training samples. Default from config.
+    """
+    set_seed()
+
+    n_samples = n_samples or config.training.n_train_samples
+
+    logger.info("=" * 60)
+    logger.info("Starting training data generation")
+    logger.info("=" * 60)
+
+    # Load observations
+    obs = load_observations()
+
+    # Generate parameter samples
+    θ_all = generate_sobol_samples(n_samples)
+
+    # Compute summary vectors
+    x_all = compute_summary_vectors(θ_all, obs)
+
+    # Save training data
+    torch.save({"θ": θ_all, "x": x_all}, paths.train_data)
+    logger.info(f"Saved training data to {paths.train_data}")
+    logger.info(f"  θ shape: {θ_all.shape}")
+    logger.info(f"  x shape: {x_all.shape}")
+
+    logger.info("Training data generation complete!")
+
+
+if __name__ == "__main__":
+    run()
