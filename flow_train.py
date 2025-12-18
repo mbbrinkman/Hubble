@@ -6,16 +6,35 @@ Train a Masked Autoregressive Flow (MAF) on the simulated training data.
 The flow learns the conditional density p(θ|x), enabling fast posterior
 sampling once trained.
 
+Features:
+- Learning rate scheduling (cosine annealing)
+- Early stopping with patience
+- Checkpointing for resume capability
+- Progress bars with tqdm
+- Train/validation split
+
 Usage:
     python flow_train.py
     # or via CLI: hubble train
 """
 
 import torch
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset, random_split
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from pathlib import Path
+from typing import Optional, Dict, Any
+import json
 
 from models import build_flow, save_flow
-from config import config, paths, DEVICE, logger, set_seed
+from config import config, paths, DEVICE, MODELS, logger, set_seed
+
+# Try to import tqdm, fall back to simple progress
+try:
+    from tqdm import tqdm
+    HAS_TQDM = True
+except ImportError:
+    HAS_TQDM = False
+    tqdm = None
 
 
 def load_training_data() -> tuple[torch.Tensor, torch.Tensor]:
@@ -34,7 +53,7 @@ def load_training_data() -> tuple[torch.Tensor, torch.Tensor]:
         )
 
     logger.info(f"Loading training data from {paths.train_data}")
-    data = torch.load(paths.train_data)
+    data = torch.load(paths.train_data, weights_only=False)
 
     θ = data["θ"]
     x = data["x"]
@@ -45,13 +64,93 @@ def load_training_data() -> tuple[torch.Tensor, torch.Tensor]:
     return x, θ
 
 
+class EarlyStopping:
+    """Early stopping handler to prevent overfitting."""
+
+    def __init__(self, patience: int = 5, min_delta: float = 1e-4):
+        """
+        Parameters
+        ----------
+        patience : int
+            Number of epochs to wait for improvement before stopping.
+        min_delta : float
+            Minimum change to qualify as an improvement.
+        """
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.best_loss = float('inf')
+        self.should_stop = False
+
+    def __call__(self, val_loss: float) -> bool:
+        """Check if training should stop."""
+        if val_loss < self.best_loss - self.min_delta:
+            self.best_loss = val_loss
+            self.counter = 0
+        else:
+            self.counter += 1
+            if self.counter >= self.patience:
+                self.should_stop = True
+        return self.should_stop
+
+
+def save_checkpoint(
+    flow,
+    optimizer,
+    scheduler,
+    epoch: int,
+    train_loss: float,
+    val_loss: float,
+    checkpoint_path: Path,
+) -> None:
+    """Save training checkpoint for resuming."""
+    checkpoint = {
+        'epoch': epoch,
+        'model_state_dict': flow.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'scheduler_state_dict': scheduler.state_dict() if scheduler else None,
+        'train_loss': train_loss,
+        'val_loss': val_loss,
+    }
+    torch.save(checkpoint, checkpoint_path)
+    logger.info(f"  Saved checkpoint to {checkpoint_path}")
+
+
+def load_checkpoint(
+    flow,
+    optimizer,
+    scheduler,
+    checkpoint_path: Path,
+) -> int:
+    """Load training checkpoint. Returns the epoch to resume from."""
+    if not checkpoint_path.exists():
+        return 0
+
+    logger.info(f"Loading checkpoint from {checkpoint_path}")
+    checkpoint = torch.load(checkpoint_path, weights_only=False)
+
+    flow.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    if scheduler and checkpoint['scheduler_state_dict']:
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+
+    logger.info(f"  Resuming from epoch {checkpoint['epoch'] + 1}")
+    return checkpoint['epoch'] + 1
+
+
 def train_flow(
     x: torch.Tensor,
     θ: torch.Tensor,
     n_epochs: int = None,
     batch_size: int = None,
     learning_rate: float = None,
-) -> None:
+    val_fraction: float = 0.1,
+    patience: int = 5,
+    use_scheduler: bool = True,
+    checkpoint_every: int = 5,
+    resume: bool = True,
+    model_name: str = None,
+) -> Dict[str, Any]:
     """
     Train the normalizing flow on the provided data.
 
@@ -60,76 +159,190 @@ def train_flow(
     x : torch.Tensor
         Summary vectors (context), shape (N, D_x).
     θ : torch.Tensor
-        Parameters (targets), shape (N, 5).
+        Parameters (targets), shape (N, n_params).
     n_epochs : int, optional
         Number of training epochs. Default from config.
     batch_size : int, optional
         Batch size. Default from config.
     learning_rate : float, optional
-        Learning rate. Default from config.
+        Initial learning rate. Default from config.
+    val_fraction : float
+        Fraction of data to use for validation.
+    patience : int
+        Early stopping patience (epochs without improvement).
+    use_scheduler : bool
+        Whether to use cosine annealing LR scheduler.
+    checkpoint_every : int
+        Save checkpoint every N epochs.
+    resume : bool
+        Whether to resume from checkpoint if available.
+    model_name : str, optional
+        Name for the model (used in checkpoint filename).
+
+    Returns
+    -------
+    dict
+        Training history with losses and metadata.
     """
     n_epochs = n_epochs or config.training.n_epochs
     batch_size = batch_size or config.training.batch_size
     learning_rate = learning_rate or config.training.learning_rate
+    n_params = θ.shape[1]
+
+    # Checkpoint path
+    model_suffix = f"_{model_name}" if model_name else ""
+    checkpoint_path = MODELS / f"checkpoint{model_suffix}.pt"
 
     logger.info("Building flow model...")
-    flow = build_flow()
+    flow = build_flow(dim=n_params)
 
-    n_params = sum(p.numel() for p in flow.parameters())
-    logger.info(f"  Model has {n_params:,} parameters")
+    n_model_params = sum(p.numel() for p in flow.parameters())
+    logger.info(f"  Model has {n_model_params:,} parameters")
 
-    # Create data loader
-    loader = DataLoader(
-        TensorDataset(x, θ),
-        batch_size=batch_size,
-        shuffle=True
+    # Split data into train/validation
+    n_val = int(len(x) * val_fraction)
+    n_train = len(x) - n_val
+
+    dataset = TensorDataset(x, θ)
+    train_dataset, val_dataset = random_split(
+        dataset, [n_train, n_val],
+        generator=torch.Generator().manual_seed(42)
     )
 
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+
+    logger.info(f"  Training samples: {n_train:,}")
+    logger.info(f"  Validation samples: {n_val:,}")
+
+    # Optimizer and scheduler
     optimizer = torch.optim.Adam(flow.parameters(), lr=learning_rate)
+    scheduler = CosineAnnealingLR(optimizer, T_max=n_epochs) if use_scheduler else None
+
+    # Early stopping
+    early_stopping = EarlyStopping(patience=patience)
+
+    # Resume from checkpoint
+    start_epoch = 0
+    if resume:
+        start_epoch = load_checkpoint(flow, optimizer, scheduler, checkpoint_path)
 
     logger.info(f"Training for {n_epochs} epochs...")
     logger.info(f"  Batch size: {batch_size}")
-    logger.info(f"  Learning rate: {learning_rate}")
+    logger.info(f"  Initial learning rate: {learning_rate}")
+    logger.info(f"  LR scheduler: {'cosine annealing' if use_scheduler else 'none'}")
+    logger.info(f"  Early stopping patience: {patience}")
 
-    best_loss = float("inf")
+    # Training history
+    history = {
+        'train_loss': [],
+        'val_loss': [],
+        'learning_rate': [],
+    }
 
-    for epoch in range(n_epochs):
-        epoch_loss = 0.0
+    best_val_loss = float("inf")
+    best_model_state = None
+
+    for epoch in range(start_epoch, n_epochs):
+        # Training phase
+        flow.train()
+        train_loss = 0.0
         n_batches = 0
 
-        for xb, θb in loader:
-            # Negative log-likelihood loss
+        # Progress bar for batches
+        if HAS_TQDM:
+            batch_iter = tqdm(train_loader, desc=f"Epoch {epoch+1}/{n_epochs}", leave=False)
+        else:
+            batch_iter = train_loader
+
+        for xb, θb in batch_iter:
             loss = -flow.log_prob(inputs=θb, context=xb).mean()
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            epoch_loss += loss.item()
+            train_loss += loss.item()
             n_batches += 1
 
-        avg_loss = epoch_loss / n_batches
-        if avg_loss < best_loss:
-            best_loss = avg_loss
-            marker = " *"
-        else:
-            marker = ""
+        avg_train_loss = train_loss / n_batches
 
-        logger.info(f"  Epoch {epoch + 1:2d}/{n_epochs}  loss: {avg_loss:.4f}{marker}")
+        # Validation phase
+        flow.eval()
+        val_loss = 0.0
+        n_val_batches = 0
 
-    # Save with metadata
+        with torch.no_grad():
+            for xb, θb in val_loader:
+                loss = -flow.log_prob(inputs=θb, context=xb).mean()
+                val_loss += loss.item()
+                n_val_batches += 1
+
+        avg_val_loss = val_loss / n_val_batches
+
+        # Update scheduler
+        current_lr = optimizer.param_groups[0]['lr']
+        if scheduler:
+            scheduler.step()
+
+        # Record history
+        history['train_loss'].append(avg_train_loss)
+        history['val_loss'].append(avg_val_loss)
+        history['learning_rate'].append(current_lr)
+
+        # Check for best model
+        improved = ""
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            best_model_state = flow.state_dict().copy()
+            improved = " *"
+
+        logger.info(
+            f"  Epoch {epoch + 1:3d}/{n_epochs}  "
+            f"train: {avg_train_loss:.4f}  val: {avg_val_loss:.4f}  "
+            f"lr: {current_lr:.2e}{improved}"
+        )
+
+        # Checkpointing
+        if (epoch + 1) % checkpoint_every == 0:
+            save_checkpoint(
+                flow, optimizer, scheduler, epoch,
+                avg_train_loss, avg_val_loss, checkpoint_path
+            )
+
+        # Early stopping check
+        if early_stopping(avg_val_loss):
+            logger.info(f"  Early stopping triggered after {epoch + 1} epochs")
+            break
+
+    # Restore best model
+    if best_model_state is not None:
+        flow.load_state_dict(best_model_state)
+        logger.info(f"  Restored best model (val_loss: {best_val_loss:.4f})")
+
+    # Save final model with metadata
     metadata = {
-        "n_epochs": n_epochs,
+        "n_epochs": epoch + 1,
         "batch_size": batch_size,
         "learning_rate": learning_rate,
-        "final_loss": avg_loss,
-        "best_loss": best_loss,
-        "n_training_samples": len(θ),
+        "final_train_loss": history['train_loss'][-1],
+        "final_val_loss": history['val_loss'][-1],
+        "best_val_loss": best_val_loss,
+        "n_training_samples": n_train,
+        "n_validation_samples": n_val,
+        "early_stopped": early_stopping.should_stop,
+        "model_name": model_name,
     }
-    save_flow(flow, metadata)
+    save_flow(flow, metadata, model_name=model_name)
+
+    # Clean up checkpoint
+    if checkpoint_path.exists():
+        checkpoint_path.unlink()
+
+    return history
 
 
-def run() -> None:
+def run(n_samples: int = None, n_epochs: int = None) -> None:
     """Run the full training pipeline."""
     set_seed()
 
@@ -138,9 +351,11 @@ def run() -> None:
     logger.info("=" * 60)
 
     x, θ = load_training_data()
-    train_flow(x, θ)
+    history = train_flow(x, θ, n_epochs=n_epochs)
 
     logger.info("Flow training complete!")
+    logger.info(f"  Final train loss: {history['train_loss'][-1]:.4f}")
+    logger.info(f"  Final val loss: {history['val_loss'][-1]:.4f}")
 
 
 if __name__ == "__main__":

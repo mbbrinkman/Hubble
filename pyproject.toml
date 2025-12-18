@@ -29,10 +29,12 @@ dependencies = [
     "torch>=2.0.0",
     "nflows>=0.14",
     "numpy>=1.21.0",
+    "scipy>=1.9.0",
     "h5py>=3.0.0",
     "cosmopower>=0.1.0",
     "sobol_seq>=0.2.0",
     "click>=8.0.0",
+    "tqdm>=4.64.0",
 ]
 
 [project.optional-dependencies]

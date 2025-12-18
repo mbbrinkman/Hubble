@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import json
 
-from config import DEVICE, paths, logger
+from config import DEVICE, MODELS, paths, logger
 from cosmology.base import CosmologicalModel
 from inference.evidence import estimate_log_evidence, EvidenceResult
 from inference.tension import TensionAnalyzer, TensionResult
@@ -345,7 +345,7 @@ def quick_compare(
 
     for name in model_names:
         model = get_model(name)
-        flow_path = paths.MODELS / f"flow_{name}.pt"
+        flow_path = MODELS / f"flow_{name}.pt"
 
         if not flow_path.exists():
             raise FileNotFoundError(

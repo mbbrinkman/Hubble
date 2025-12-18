@@ -313,6 +313,55 @@ Optional:
 
 MIT License
 
+## Development Roadmap
+
+### Recently Implemented ✅
+
+- **Vectorized Simpson's rule integration** for comoving distance (faster, more accurate)
+- **Training improvements**: LR scheduling (cosine annealing), early stopping, checkpointing
+- **Progress bars** with tqdm for long operations
+- **Model selection criteria**: AIC, BIC, DIC, WAIC (in `inference/model_selection.py`)
+- **CI/CD pipeline** with GitHub Actions (`.github/workflows/ci.yml`)
+- **LaTeX export** for publication tables (`analysis/visualize.py`)
+
+### TODO: Scientific Accuracy (High Priority)
+
+- [ ] **Pantheon+ covariance matrix** - Use full covariance, not diagonal errors
+- [ ] **Configurable flatness** - Add Ωk parameter for non-flat cosmologies
+- [ ] **BAO sound horizon** - Include r_d and Alcock-Paczynski corrections
+- [ ] **Nuisance marginalization** - Marginalize over SN absolute magnitude M, BAO r_d
+- [ ] **Proper EDE physics** - Solve Friedmann equations instead of approximate scaling
+- [ ] **Real Pantheon+ download** - Implement `download_real_data()`
+
+### TODO: Validation & Comparison
+
+- [ ] **MCMC sampler** - Add emcee/PyMC for flow validation
+- [ ] **Nested sampling** - Add dynesty/MultiNest for robust evidence
+- [ ] **Convergence diagnostics** - Gelman-Rubin, ESS, autocorrelation
+- [ ] **Posterior predictive checks** - Validate model fit quality
+
+### TODO: Data Support
+
+- [ ] **Planck CMB likelihood** - Add CMB constraint support
+- [ ] **Systematic errors** - Model calibration uncertainties
+- [ ] **Blinding** - Add capability for unbiased analysis
+- [ ] **Cepheid/TRGB calibrators** - Local distance ladder
+
+### TODO: Infrastructure
+
+- [ ] **YAML configuration** - External config file support
+- [ ] **Input validation** - Type checking across all functions
+- [ ] **FITS file I/O** - Standard astronomy format
+- [ ] **Experiment tracking** - TensorBoard/W&B integration
+- [ ] **API documentation** - Sphinx docs
+- [ ] **Tutorial notebooks** - Jupyter examples
+
+### TODO: Performance
+
+- [ ] **GPU memory management** - Gradient checkpointing for large models
+- [ ] **torch.compile()** - JIT optimization for critical paths
+- [ ] **Distributed training** - Multi-GPU support
+
 ## Contributing
 
 Contributions welcome! Priority areas:
