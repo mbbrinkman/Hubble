@@ -188,7 +188,6 @@ def train_model(model_name: str, n_samples: int, epochs: int, batch_size: int, l
     """
     import torch
     from torch.utils.data import DataLoader, TensorDataset
-    import h5py
 
     from cosmology import get_model
     from models import build_flow_for_model, save_flow
@@ -205,10 +204,8 @@ def train_model(model_name: str, n_samples: int, epochs: int, batch_size: int, l
 
     # Load observations
     logger.info("Loading observations...")
-    with h5py.File(paths.obs_h5, "r") as f:
-        obs_arrays = {k: torch.tensor(f[k][...], device=DEVICE) for k in f}
-    callbacks = torch.load(paths.residual_fns)
-    obs = {**obs_arrays, **callbacks}
+    import prep
+    obs = prep.load_observations()
 
     # Generate training data for this model
     logger.info(f"Generating {n_samples:,} training samples...")
