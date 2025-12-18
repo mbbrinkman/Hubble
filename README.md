@@ -317,6 +317,16 @@ MIT License
 
 ### Recently Implemented ✅
 
+**Bug Fixes:**
+- Fixed broken test imports (`chi`, `DV` → `comoving_distance`, `volume_distance`)
+- Fixed `Ez()` function signature in tests (removed non-existent H0 parameter)
+- Fixed model name assertions in end-to-end tests
+- Fixed `probability_resolution()` tuple unpacking in tests
+- Replaced deprecated `torch.trapz` with `torch.trapezoid`
+- Fixed `paths.MODELS` → `MODELS` import in `inference/comparison.py`
+- Added missing `scipy` dependency to `pyproject.toml`
+
+**New Features:**
 - **Vectorized Simpson's rule integration** for comoving distance (faster, more accurate)
 - **Training improvements**: LR scheduling (cosine annealing), early stopping, checkpointing
 - **Progress bars** with tqdm for long operations
