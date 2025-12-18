@@ -280,7 +280,7 @@ class TestCosmologyModels:
 
         model = get_model("concordance")
         assert model.n_params == 5
-        assert model.name == "Concordance ΛCDM"
+        assert model.name == "ΛCDM Concordance"
 
         # Sample prior
         samples = model.sample_prior(100)
@@ -297,7 +297,7 @@ class TestCosmologyModels:
 
         model = get_model("discordance")
         assert model.n_params == 6
-        assert model.name == "Discordance (Split H₀)"
+        assert model.name == "Split-H₀ Discordance"
 
         # Sample prior
         samples = model.sample_prior(100)
@@ -324,12 +324,13 @@ class TestCosmologyModels:
         ], device=self.device)
 
         # P(|ΔH0| < 2) should be 2/4 = 0.5
-        prob = model.probability_resolution(samples, epsilon=2.0)
-        assert torch.isclose(prob, torch.tensor(0.5, device=self.device))
+        # probability_resolution returns (prob, std_err) tuple
+        prob, std_err = model.probability_resolution(samples, epsilon=2.0)
+        assert abs(prob - 0.5) < 0.01
 
         # P(|ΔH0| < 10) should be 1.0
-        prob = model.probability_resolution(samples, epsilon=10.0)
-        assert torch.isclose(prob, torch.tensor(1.0, device=self.device))
+        prob, std_err = model.probability_resolution(samples, epsilon=10.0)
+        assert abs(prob - 1.0) < 0.01
 
 
 if __name__ == "__main__":

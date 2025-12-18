@@ -78,9 +78,8 @@ def Ez(z: torch.Tensor, Om: float, Ode: float, w0: float, wa: float) -> torch.Te
         E(z) values.
     """
     a = 1.0 / (1.0 + z)
-    # w(a) = w0 + wa * (1 - a)
-    w_eff = w0 + wa * (1.0 - a)
-    # Dark energy density: ρ_de ∝ a^(-3(1+w))
+    # Dark energy density with CPL parameterization: w(a) = w0 + wa * (1 - a)
+    # ρ_de ∝ a^(-3(1+w_eff)) where integral gives the exponential form below
     de_term = Ode * torch.exp(-3.0 * (1.0 + w0 + wa) * torch.log(a) + 3.0 * wa * (a - 1.0))
     return torch.sqrt(Om * (1.0 + z) ** 3 + de_term)
 
@@ -110,10 +109,7 @@ def Ez_batch(z: torch.Tensor, theta: torch.Tensor) -> torch.Tensor:
     z = z.unsqueeze(0)    # (1, n_z)
     a = 1.0 / (1.0 + z)   # (1, n_z)
 
-    # w(a) = w0 + wa * (1 - a)
-    w_eff = w0 + wa * (1.0 - a)  # (batch, n_z)
-
-    # Dark energy term with CPL parameterization
+    # Dark energy term with CPL parameterization: w(a) = w0 + wa * (1 - a)
     de_term = Ode * torch.exp(-3.0 * (1.0 + w0 + wa) * torch.log(a) + 3.0 * wa * (a - 1.0))
 
     return torch.sqrt(Om * (1.0 + z) ** 3 + de_term)  # (batch, n_z)
@@ -156,7 +152,7 @@ def comoving_distance(z: torch.Tensor, theta: torch.Tensor, n_points: int = None
         z_grid = torch.linspace(0.0, zi.item(), n_points, device=DEVICE)
         integrand = 1.0 / Ez_batch(z_grid, theta)  # (batch, n_points)
         dz = zi / (n_points - 1)
-        chi = torch.trapz(integrand, z_grid)  # (batch,)
+        chi = torch.trapezoid(integrand, z_grid)  # (batch,)
         results.append(chi)
 
     chi = torch.stack(results, dim=1)  # (batch, n_z)
