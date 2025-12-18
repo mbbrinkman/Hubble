@@ -2,12 +2,115 @@
 
 **Bayesian cosmological inference with normalizing flows.**
 
-Hubble is an advanced inference pipeline for cosmological parameter estimation and **Hubble tension quantification**. It provides:
+Hubble is an inference pipeline for cosmological parameter estimation and **Hubble tension quantification**. It provides:
 
 - **Bayesian model comparison** via Bayes factors
 - **Direct probability of tension resolution**: P(|ΔH₀| < ε)
 - **Multiple cosmological models**: ΛCDM, split-H₀, dynamic dark energy, early dark energy
 - **Fast amortized inference** using normalizing flows
+
+## Current Status
+
+**Working features:**
+- Synthetic data generation with known cosmology
+- Forward model for Type Ia supernovae and BAO distances
+- Normalizing flow training and posterior sampling
+- Multiple cosmological model definitions
+- Bayesian evidence estimation
+- Tension probability calculations
+
+**Not yet implemented:**
+- Real Pantheon+ data download (use synthetic for now)
+- CMB power spectra integration (optional, requires CosmoPower)
+- Cepheid/TRGB/lens distance calibrators
+
+## Quick Start
+
+### 1. Install Dependencies
+
+```bash
+cd Hubble
+pip install -e .
+```
+
+Or install requirements manually:
+
+```bash
+pip install torch numpy h5py nflows sobol_seq click
+```
+
+### 2. Generate Synthetic Data
+
+```bash
+python setup_data.py --synthetic
+
+# Options:
+python setup_data.py --H0 70.0 --Om 0.3 --n-sn 1000 --seed 42
+```
+
+This creates synthetic SN Ia and BAO data with known cosmology (default: H₀=70, Ωm=0.3).
+
+### 3. Prepare Observations
+
+```bash
+python prep.py
+# or via CLI: hubble prep
+```
+
+### 4. Generate Training Data
+
+```bash
+python sim.py
+# or with custom size:
+hubble simulate --n-samples 10000
+```
+
+### 5. Train Flow
+
+```bash
+python flow_train.py
+# or via CLI:
+hubble train --epochs 10
+```
+
+### 6. Sample Posterior
+
+```bash
+python posterior.py
+# or via CLI:
+hubble sample --n-samples 50000
+```
+
+### 7. Analyze Results
+
+```bash
+hubble analyze
+```
+
+## Full Workflow Example
+
+```bash
+# 1. Generate synthetic data with H0=70, Om=0.3
+python setup_data.py --synthetic --H0 70 --Om 0.3
+
+# 2. Prepare data
+python prep.py
+
+# 3. Generate small training set (quick test)
+hubble simulate --n-samples 10000
+
+# 4. Train flow
+hubble train --epochs 5
+
+# 5. Compute observed summary
+hubble observe
+
+# 6. Sample posterior
+hubble sample --n-samples 10000
+
+# 7. Analyze
+hubble analyze
+```
 
 ## The Hubble Tension Problem
 
@@ -20,65 +123,6 @@ Traditional frequentist analysis gives "n-sigma tension" but doesn't answer:
 
 Hubble answers this directly with Bayesian model comparison.
 
-## Key Features
-
-| Feature | Description |
-|---------|-------------|
-| **P(resolution)** | Direct probability that |ΔH₀| < ε under the discordance model |
-| **Bayes factors** | Compare concordance vs. discordance hypotheses |
-| **Multiple models** | ΛCDM, split-H₀, wCDM, early dark energy |
-| **Fast inference** | Posterior in seconds, not hours |
-| **Amortized** | Train once, condition on any observation instantly |
-
-## Installation
-
-```bash
-git clone https://github.com/mbbrinkman/Hubble.git
-cd Hubble
-pip install -e .
-```
-
-### Requirements
-
-- Python ≥ 3.9
-- PyTorch ≥ 2.0
-- CUDA GPU (recommended) or CPU
-
-## Quick Start
-
-### Basic Pipeline
-
-```bash
-hubble prep           # Prepare data
-hubble train-model concordance -n 100000   # Train concordance model
-hubble train-model discordance -n 100000   # Train discordance model
-hubble observe        # Compute observed summary
-hubble compare        # Compare models!
-```
-
-### Tension Analysis
-
-```bash
-# Quantify Hubble tension
-hubble tension --model discordance --epsilon 1.0
-
-# Output:
-# P(|ΔH₀| < 1.0) = 0.023 ± 0.005
-# ΔH₀ = 5.4 ± 1.2 km/s/Mpc
-# CONCLUSION: Strong evidence that Hubble tension is REAL
-```
-
-### Model Comparison
-
-```bash
-# Compare concordance vs. discordance
-hubble compare -m concordance -m discordance
-
-# Output:
-# Bayes factor (concordance/discordance) = 0.03
-# → Strong evidence for discordance (tension is real)
-```
-
 ## Cosmological Models
 
 | Model | Parameters | Description |
@@ -88,56 +132,33 @@ hubble compare -m concordance -m discordance
 | `wcdm` | 5 | Dynamic dark energy (w₀-wa) |
 | `early_de` | 7 | Early dark energy component |
 
-```bash
-# List all models
-hubble models
+### Training Models
 
-# Train any model
-hubble train-model early_de --n-samples 100000 --epochs 20
+```bash
+# Train concordance model
+hubble train-model concordance --n-samples 50000 --epochs 10
+
+# Train discordance model
+hubble train-model discordance --n-samples 50000 --epochs 10
 ```
 
-## CLI Reference
-
-### Basic Commands
+### Model Comparison
 
 ```bash
-hubble prep          # Prepare observational data
-hubble simulate      # Generate training data
-hubble train         # Train default flow
-hubble observe       # Compute observed summary
-hubble sample        # Draw posterior samples
-hubble analyze       # Basic posterior analysis
-hubble run           # Full pipeline
+# Compare models (requires trained flows)
+hubble compare -m concordance -m discordance
 ```
 
-### Model Comparison Commands
+### Tension Analysis
 
 ```bash
-hubble models                    # List available models
-hubble train-model MODEL         # Train flow for specific model
-hubble compare -m M1 -m M2       # Compare models via Bayes factors
-hubble tension -m MODEL          # Quantify H₀ tension
-```
+# Quantify Hubble tension
+hubble tension --model discordance --epsilon 1.0
 
-### Visualization Commands
-
-```bash
-hubble plot-corner -m MODEL      # Corner plot of posterior
-hubble plot-tension -m MODEL     # Tension probability curve
-```
-
-### Examples
-
-```bash
-# Full tension analysis workflow
-hubble prep
-hubble train-model concordance -n 100000 -e 15
-hubble train-model discordance -n 100000 -e 15
-hubble observe
-hubble compare -m concordance -m discordance --output results.json
-hubble tension -m discordance -e 2.0
-hubble plot-corner -m discordance
-hubble plot-tension -m discordance
+# Output includes:
+# - P(|ΔH₀| < ε) - probability of resolution
+# - ΔH₀ mean and credible interval
+# - Statistical interpretation
 ```
 
 ## Project Structure
@@ -147,6 +168,12 @@ Hubble/
 ├── config.py              # Configuration management
 ├── models.py              # Flow architecture
 ├── forward.py             # Cosmological forward model
+├── setup_data.py          # Data generation
+├── prep.py                # Data preparation
+├── sim.py                 # Training data generation
+├── flow_train.py          # Flow training
+├── x_obs.py               # Observed summary vector
+├── posterior.py           # Posterior sampling
 ├── main.py                # CLI entry point
 │
 ├── cosmology/             # Cosmological models
@@ -165,28 +192,34 @@ Hubble/
 │   └── visualize.py      # Plotting functions
 │
 ├── tests/                 # Unit tests
-├── data/                  # Data files
-├── models/                # Trained flows
-└── results/               # Output files
+├── data/                  # Data files (generated)
+├── models/                # Trained flows (generated)
+└── results/               # Output files (generated)
 ```
 
 ## How It Works
 
-### 1. Training Phase
+### 1. Forward Model
+
+Computes cosmological distances from parameters θ = (H₀, Ωm, Ωde, w₀, wa):
+- **Luminosity distance** dL(z) for Type Ia supernovae
+- **Volume distance** DV(z) for BAO measurements
+
+### 2. Training Phase
 
 For each cosmological model M:
 1. Sample parameters θ from prior: θ ~ P(θ|M)
 2. Compute summary statistics: x = f(θ)
-3. Train flow to learn P(θ|x, M)
+3. Train normalizing flow to learn P(θ|x, M)
 
-### 2. Inference Phase
+### 3. Inference Phase
 
 Given observed data x_obs:
 1. Load trained flow for model M
 2. Sample posterior: θ ~ P(θ|x_obs, M)
 3. Compute evidence: P(x_obs|M)
 
-### 3. Model Comparison
+### 4. Model Comparison
 
 Compute Bayes factor:
 ```
@@ -196,7 +229,7 @@ B = P(x_obs|concordance) / P(x_obs|discordance)
 - B >> 1: Evidence for concordance (no tension)
 - B << 1: Evidence for discordance (tension is real)
 
-### 4. Tension Probability
+### 5. Tension Probability
 
 Under the discordance model:
 ```
@@ -205,46 +238,76 @@ P(resolution) = P(|H₀_late - H₀_early| < ε | x_obs)
 
 This directly answers: "What's the probability the measurements agree?"
 
-## Scientific Output
+## CLI Reference
 
-For a paper, you would report:
+```bash
+hubble --help              # Show all commands
 
-> Using simulation-based inference with normalizing flows, we compute
-> the Bayesian evidence for concordance (single H₀) versus discordance
-> (split H₀) models. We find a Bayes factor of B = 0.03 ± 0.01,
-> corresponding to strong evidence for discordance.
->
-> Under the discordance model, we find P(|ΔH₀| < 1 km/s/Mpc) = 0.02,
-> indicating a 2% probability that the Hubble tension is a statistical
-> fluctuation.
+# Basic pipeline
+hubble prep                # Prepare data
+hubble simulate            # Generate training data
+hubble train               # Train flow
+hubble observe             # Compute x_obs
+hubble sample              # Draw posterior samples
+hubble analyze             # Analyze results
+hubble run                 # Full pipeline
 
-## Comparison with Other Tools
+# Model comparison
+hubble models              # List available models
+hubble train-model MODEL   # Train specific model
+hubble compare             # Compare models
+hubble tension             # Quantify tension
+```
 
-| Tool | Approach | Model Comparison | Tension Metric | Speed |
-|------|----------|------------------|----------------|-------|
-| CosmoMC | MCMC | Via nested sampling | Manual | Slow |
-| Cobaya | MCMC+nested | PolyChord | Manual | Slow |
-| MontePython | MCMC | Limited | Manual | Slow |
-| sbi/pydelfi | Neural | Not native | Not native | Fast |
-| **Hubble** | Flows | **Native Bayes factors** | **P(resolution)** | **Fast** |
+## Running Tests
 
-## Data Requirements
+```bash
+# Install test dependencies
+pip install pytest
 
-Place in `data/raw/`:
-- `Pantheon+_SH0ES.dat` - SN Ia distances
-- `pantheon_sigma.npy` - Uncertainties
-- `BAO_DV.dat` - BAO measurements
+# Run tests
+pytest tests/ -v
 
-Place in `models/`:
-- `CosmoPower_CMB_TT_TE_EE_L_highacc.pkl` - CMB emulator
+# End-to-end test
+pytest tests/test_end_to_end.py -v
+```
+
+## Validating Results
+
+With synthetic data, you can validate posterior recovery:
+
+```bash
+# Generate data with known H0=70, Om=0.3
+python setup_data.py --H0 70 --Om 0.3
+
+# Run full pipeline
+hubble run
+
+# Analyze - posterior should peak near true values
+hubble analyze
+```
+
+The saved true parameters are in `data/raw/true_params.npy`.
+
+## Requirements
+
+- Python ≥ 3.9
+- PyTorch ≥ 2.0
+- nflows
+- h5py
+- numpy
+- sobol_seq
+- click
+
+Optional:
+- cosmopower (for CMB power spectra)
+- matplotlib, corner (for visualization)
 
 ## References
 
 - **Normalizing Flows**: [Papamakarios et al. (2019)](https://arxiv.org/abs/1912.02762)
 - **Simulation-Based Inference**: [Cranmer et al. (2020)](https://arxiv.org/abs/1911.01429)
 - **Hubble Tension**: [Di Valentino et al. (2021)](https://arxiv.org/abs/2103.01183)
-- **CosmoPower**: [Spurio Mancini et al. (2021)](https://arxiv.org/abs/2106.03846)
-- **Early Dark Energy**: [Poulin et al. (2019)](https://arxiv.org/abs/1811.04083)
 
 ## License
 
@@ -253,7 +316,8 @@ MIT License
 ## Contributing
 
 Contributions welcome! Priority areas:
-- Implement real Cepheid/TRGB/lens residual functions
-- Add MCMC baseline for validation
-- Implement Neural Spline Flows for improved expressiveness
-- Add more extended cosmological models
+- Real Pantheon+ data parsing
+- CMB emulator integration
+- Cepheid/TRGB/lens distance calibrators
+- MCMC baseline for validation
+- Neural Spline Flows for improved expressiveness

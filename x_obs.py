@@ -20,9 +20,9 @@ Usage:
 
 import warnings
 import torch
-import h5py
 
 import forward
+import prep
 from config import paths, DEVICE, logger
 
 
@@ -50,38 +50,10 @@ def get_fiducial_theta(device: torch.device = None) -> torch.Tensor:
     theta = torch.tensor(
         [FIDUCIAL_PARAMS["H0"], FIDUCIAL_PARAMS["Om"], FIDUCIAL_PARAMS["Ode"],
          FIDUCIAL_PARAMS["w0"], FIDUCIAL_PARAMS["wa"]],
-        device=device
+        device=device,
+        dtype=torch.float32
     )
     return theta
-
-
-def load_observations() -> dict:
-    """
-    Load processed observations and residual functions.
-
-    Returns
-    -------
-    dict
-        Combined dictionary with observation arrays and residual callables.
-    """
-    if not paths.obs_h5.exists():
-        raise FileNotFoundError(
-            f"Processed observations not found at {paths.obs_h5}. "
-            "Run 'python prep.py' first."
-        )
-
-    if not paths.residual_fns.exists():
-        raise FileNotFoundError(
-            f"Residual functions not found at {paths.residual_fns}. "
-            "Run 'python prep.py' first."
-        )
-
-    logger.info(f"Loading observations from {paths.obs_h5}")
-    with h5py.File(paths.obs_h5, "r") as f:
-        obs_arrays = {k: torch.tensor(f[k][...], device=DEVICE) for k in f}
-
-    callbacks = torch.load(paths.residual_fns)
-    return {**obs_arrays, **callbacks}
 
 
 def compute_observed_summary(theta: torch.Tensor = None) -> torch.Tensor:
@@ -118,12 +90,12 @@ def compute_observed_summary(theta: torch.Tensor = None) -> torch.Tensor:
             stacklevel=2
         )
 
-    obs = load_observations()
+    obs = prep.load_observations()
 
     logger.info("Computing observed summary vector...")
     logger.info(f"  Using θ = {theta.tolist()}")
 
-    x_obs = forward.summary_vector(theta, obs)
+    x_obs = forward.summary_vector_simple(theta, obs)
 
     logger.info(f"  Summary vector length: {len(x_obs)}")
 

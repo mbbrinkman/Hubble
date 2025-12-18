@@ -3,17 +3,14 @@ prep.py
 -------
 Data preparation module for Hubble.
 
-Loads raw observational data (Pantheon+, BAO, JWST placeholders),
-converts to consistent units, and stores:
-  * Numerical arrays -> HDF5 (obs.h5)
-  * Residual callables -> Torch pickle (residual_fns.pt)
+Loads raw observational data (Pantheon+, BAO) and converts to PyTorch tensors
+ready for training and inference.
 
 Usage:
     python prep.py
     # or via CLI: hubble prep
 """
 
-import warnings
 import numpy as np
 import h5py
 import torch
@@ -35,7 +32,8 @@ def validate_input_files() -> None:
     if missing:
         raise FileNotFoundError(
             "Missing required raw data files:\n" + "\n".join(missing) + "\n"
-            "Please download the data files to the data/raw/ directory."
+            "Run 'python setup_data.py --synthetic' to generate test data,\n"
+            "or download real data to the data/raw/ directory."
         )
 
 
@@ -44,9 +42,9 @@ def load_and_process_observations() -> None:
     Load raw observation files and create processed HDF5 file.
 
     Reads:
-        - Pantheon+_SH0ES.dat: Type Ia supernova data
-        - pantheon_sigma.npy: Uncertainty estimates
-        - BAO_DV.dat: BAO measurements
+        - Pantheon+_SH0ES.dat: Type Ia supernova data (z, mu)
+        - pantheon_sigma.npy: Uncertainty estimates (σ_dL)
+        - BAO_DV.dat: BAO measurements (z, DV, σ_DV)
 
     Writes:
         - obs.h5: Processed HDF5 with all observation arrays
@@ -84,99 +82,42 @@ def load_and_process_observations() -> None:
     logger.info(f"Wrote processed observations to {paths.obs_h5}")
 
 
-# ---------------------------------------------------------------------------
-# Placeholder residual functions
-# ---------------------------------------------------------------------------
-# These return zeros of the correct length so the pipeline runs.
-# Replace with real photometry→distance calculations when available.
-
-
-def cep_res(theta: torch.Tensor) -> torch.Tensor:
+def load_observations(device: torch.device = None) -> dict:
     """
-    Cepheid variable residuals (placeholder).
-
-    TODO: Replace with real Cepheid period-luminosity calculations.
+    Load processed observations as PyTorch tensors.
 
     Parameters
     ----------
-    theta : torch.Tensor
-        Cosmological parameters.
+    device : torch.device, optional
+        Device to place tensors on. Default from config.
 
     Returns
     -------
-    torch.Tensor
-        Residual vector of length 42.
+    dict
+        Dictionary with keys:
+        - z_sn, dL_obs, σ_dL: SN Ia data tensors
+        - z_bao, DV_obs, σ_DV: BAO data tensors
     """
-    warnings.warn(
-        "Using placeholder Cepheid residuals (zeros). "
-        "Replace cep_res() with real calculations.",
-        UserWarning,
-        stacklevel=2
-    )
-    return torch.zeros(42, device=theta.device)
+    device = device or DEVICE
 
+    if not paths.obs_h5.exists():
+        raise FileNotFoundError(
+            f"Processed observations not found at {paths.obs_h5}.\n"
+            "Run 'python prep.py' or 'hubble prep' first."
+        )
 
-def trgb_res(theta: torch.Tensor) -> torch.Tensor:
-    """
-    Tip of the Red Giant Branch (TRGB) residuals (placeholder).
+    with h5py.File(paths.obs_h5, "r") as f:
+        obs = {
+            "z_sn": torch.tensor(f["z_sn"][:], dtype=torch.float32, device=device),
+            "dL_obs": torch.tensor(f["dL_obs"][:], dtype=torch.float32, device=device),
+            "σ_dL": torch.tensor(f["σ_dL"][:], dtype=torch.float32, device=device),
+            "z_bao": torch.tensor(f["z_bao"][:], dtype=torch.float32, device=device),
+            "DV_obs": torch.tensor(f["DV_obs"][:], dtype=torch.float32, device=device),
+            "σ_DV": torch.tensor(f["σ_DV"][:], dtype=torch.float32, device=device),
+        }
 
-    TODO: Replace with real TRGB distance calculations.
-
-    Parameters
-    ----------
-    theta : torch.Tensor
-        Cosmological parameters.
-
-    Returns
-    -------
-    torch.Tensor
-        Residual vector of length 8.
-    """
-    warnings.warn(
-        "Using placeholder TRGB residuals (zeros). "
-        "Replace trgb_res() with real calculations.",
-        UserWarning,
-        stacklevel=2
-    )
-    return torch.zeros(8, device=theta.device)
-
-
-def lens_res(theta: torch.Tensor) -> torch.Tensor:
-    """
-    Gravitational lens time-delay residuals (placeholder).
-
-    TODO: Replace with real lens system calculations.
-
-    Parameters
-    ----------
-    theta : torch.Tensor
-        Cosmological parameters.
-
-    Returns
-    -------
-    torch.Tensor
-        Residual vector of length 8.
-    """
-    warnings.warn(
-        "Using placeholder lens residuals (zeros). "
-        "Replace lens_res() with real calculations.",
-        UserWarning,
-        stacklevel=2
-    )
-    return torch.zeros(8, device=theta.device)
-
-
-def save_residual_functions() -> None:
-    """Save residual function callables for use by other modules."""
-    torch.save(
-        {
-            "cep_res": cep_res,
-            "trgb_res": trgb_res,
-            "lens_res": lens_res,
-        },
-        paths.residual_fns
-    )
-    logger.info(f"Wrote residual functions to {paths.residual_fns}")
+    logger.info(f"Loaded observations: {len(obs['z_sn'])} SNe, {len(obs['z_bao'])} BAO")
+    return obs
 
 
 def run() -> None:
@@ -186,7 +127,6 @@ def run() -> None:
     logger.info("=" * 60)
 
     load_and_process_observations()
-    save_residual_functions()
 
     logger.info("Data preparation complete!")
 

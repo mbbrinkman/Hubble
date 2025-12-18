@@ -13,39 +13,10 @@ Usage:
 
 import torch
 import sobol_seq
-import h5py
 
 import forward
+import prep
 from config import config, paths, DEVICE, logger, set_seed
-
-
-def load_observations() -> dict:
-    """
-    Load processed observations and residual functions.
-
-    Returns
-    -------
-    dict
-        Combined dictionary with observation arrays and residual callables.
-    """
-    if not paths.obs_h5.exists():
-        raise FileNotFoundError(
-            f"Processed observations not found at {paths.obs_h5}. "
-            "Run 'python prep.py' first."
-        )
-
-    if not paths.residual_fns.exists():
-        raise FileNotFoundError(
-            f"Residual functions not found at {paths.residual_fns}. "
-            "Run 'python prep.py' first."
-        )
-
-    logger.info(f"Loading observations from {paths.obs_h5}")
-    with h5py.File(paths.obs_h5, "r") as f:
-        obs_arrays = {k: torch.tensor(f[k][...], device=DEVICE) for k in f}
-
-    callbacks = torch.load(paths.residual_fns)
-    return {**obs_arrays, **callbacks}
 
 
 def generate_sobol_samples(n_samples: int) -> torch.Tensor:
@@ -108,7 +79,7 @@ def compute_summary_vectors(θ_all: torch.Tensor, obs: dict, batch_size: int = 1
         if i % batch_size == 0:
             pct = 100 * i / n_samples
             logger.info(f"  Progress: {i:,}/{n_samples:,} ({pct:.1f}%)")
-        x_list.append(forward.summary_vector(θ, obs))
+        x_list.append(forward.summary_vector_simple(θ, obs))
 
     logger.info(f"  Progress: {n_samples:,}/{n_samples:,} (100.0%)")
 
@@ -133,7 +104,7 @@ def run(n_samples: int = None) -> None:
     logger.info("=" * 60)
 
     # Load observations
-    obs = load_observations()
+    obs = prep.load_observations()
 
     # Generate parameter samples
     θ_all = generate_sobol_samples(n_samples)

@@ -259,7 +259,7 @@ class CosmologicalModel(ABC):
         torch.Tensor
             Summary statistics vector
         """
-        from forward import summary_vector as fwd_summary
+        from forward import summary_vector_simple
 
         # Get cosmological parameters for this model
         cosmo = self.get_cosmology_params(theta)
@@ -275,7 +275,7 @@ class CosmologicalModel(ABC):
             cosmo["wa"]
         ])
 
-        return fwd_summary(theta_fwd, obs)
+        return summary_vector_simple(theta_fwd, obs)
 
     def __repr__(self) -> str:
         params_str = ", ".join([f"{p.symbol}" for p in self._parameters])
