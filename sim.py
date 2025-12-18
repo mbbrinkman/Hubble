@@ -18,6 +18,14 @@ import forward
 import prep
 from config import config, paths, DEVICE, logger, set_seed
 
+# Try to import tqdm for progress bars
+try:
+    from tqdm import tqdm
+    HAS_TQDM = True
+except ImportError:
+    HAS_TQDM = False
+    tqdm = None
+
 
 def generate_sobol_samples(n_samples: int) -> torch.Tensor:
     """
@@ -75,13 +83,21 @@ def compute_summary_vectors(θ_all: torch.Tensor, obs: dict, batch_size: int = 1
     logger.info(f"Computing {n_samples:,} summary vectors...")
 
     x_list = []
-    for i, θ in enumerate(θ_all):
-        if i % batch_size == 0:
+
+    # Use tqdm if available
+    if HAS_TQDM:
+        iterator = tqdm(θ_all, desc="Computing summaries", unit="sample")
+    else:
+        iterator = θ_all
+
+    for i, θ in enumerate(iterator):
+        if not HAS_TQDM and i % batch_size == 0 and i > 0:
             pct = 100 * i / n_samples
             logger.info(f"  Progress: {i:,}/{n_samples:,} ({pct:.1f}%)")
         x_list.append(forward.summary_vector_simple(θ, obs))
 
-    logger.info(f"  Progress: {n_samples:,}/{n_samples:,} (100.0%)")
+    if not HAS_TQDM:
+        logger.info(f"  Progress: {n_samples:,}/{n_samples:,} (100.0%)")
 
     return torch.stack(x_list)
 

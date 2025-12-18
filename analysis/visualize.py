@@ -372,3 +372,187 @@ def plot_delta_H0_distribution(
         logger.info(f"Saved delta H0 distribution to {output_path}")
 
     return fig
+
+
+# =============================================================================
+# LaTeX Export Functions
+# =============================================================================
+
+def export_posterior_table(
+    stats: Dict[str, Dict[str, float]],
+    model_name: str = "Model",
+    output_path: Optional[Path] = None,
+    caption: str = "Posterior parameter constraints",
+) -> str:
+    """
+    Export posterior statistics as a LaTeX table.
+
+    Parameters
+    ----------
+    stats : dict
+        Output from prob.compute_posterior_statistics()
+        {param_name: {mean, std, median, q16, q84, q025, q975}}
+    model_name : str
+        Name of the model for the table
+    output_path : Path, optional
+        Where to save the .tex file
+    caption : str
+        Table caption
+
+    Returns
+    -------
+    str
+        LaTeX table code
+    """
+    lines = []
+    lines.append(r"\begin{table}[htbp]")
+    lines.append(r"\centering")
+    lines.append(fr"\caption{{{caption}}}")
+    lines.append(r"\label{tab:posterior}")
+    lines.append(r"\begin{tabular}{lcccc}")
+    lines.append(r"\hline\hline")
+    lines.append(r"Parameter & Mean $\pm$ Std & Median & 68\% CI & 95\% CI \\")
+    lines.append(r"\hline")
+
+    for param_name, s in stats.items():
+        # Format nicely
+        mean_std = f"${s['mean']:.3f} \\pm {s['std']:.3f}$"
+        median = f"${s['median']:.3f}$"
+        ci68 = f"$[{s['q16']:.3f}, {s['q84']:.3f}]$"
+        ci95 = f"$[{s['q025']:.3f}, {s['q975']:.3f}]$"
+
+        lines.append(f"{param_name} & {mean_std} & {median} & {ci68} & {ci95} \\\\")
+
+    lines.append(r"\hline\hline")
+    lines.append(r"\end{tabular}")
+    lines.append(r"\end{table}")
+
+    latex = "\n".join(lines)
+
+    if output_path:
+        with open(output_path, 'w') as f:
+            f.write(latex)
+        logger.info(f"Saved LaTeX table to {output_path}")
+
+    return latex
+
+
+def export_model_comparison_table(
+    comparison_result,
+    output_path: Optional[Path] = None,
+    caption: str = "Bayesian model comparison",
+) -> str:
+    """
+    Export model comparison results as a LaTeX table.
+
+    Parameters
+    ----------
+    comparison_result : ComparisonResult
+        Output from ModelComparison.compare()
+    output_path : Path, optional
+        Where to save the .tex file
+    caption : str
+        Table caption
+
+    Returns
+    -------
+    str
+        LaTeX table code
+    """
+    lines = []
+    lines.append(r"\begin{table}[htbp]")
+    lines.append(r"\centering")
+    lines.append(fr"\caption{{{caption}}}")
+    lines.append(r"\label{tab:model_comparison}")
+    lines.append(r"\begin{tabular}{lcccc}")
+    lines.append(r"\hline\hline")
+    lines.append(r"Model & $k$ & $\ln \mathcal{Z}$ & $P(M|D)$ & $\ln B_{i0}$ \\")
+    lines.append(r"\hline")
+
+    # Sort by probability
+    sorted_models = sorted(
+        comparison_result.models,
+        key=lambda m: -comparison_result.model_probabilities[m.model.short_name]
+    )
+
+    best_log_ev = sorted_models[0].log_evidence
+
+    for mr in sorted_models:
+        name = mr.model.name
+        k = mr.model.n_params
+        log_ev = mr.log_evidence
+        prob = comparison_result.model_probabilities[mr.model.short_name]
+        log_bf = log_ev - best_log_ev
+
+        lines.append(
+            f"{name} & {k} & ${log_ev:.2f}$ & ${prob:.3f}$ & ${log_bf:.2f}$ \\\\"
+        )
+
+    lines.append(r"\hline\hline")
+    lines.append(r"\end{tabular}")
+    lines.append(r"\tablefoot{$k$: number of parameters, $\ln\mathcal{Z}$: log evidence, ")
+    lines.append(r"$P(M|D)$: posterior model probability, $\ln B_{i0}$: log Bayes factor vs best.}")
+    lines.append(r"\end{table}")
+
+    latex = "\n".join(lines)
+
+    if output_path:
+        with open(output_path, 'w') as f:
+            f.write(latex)
+        logger.info(f"Saved LaTeX table to {output_path}")
+
+    return latex
+
+
+def export_tension_table(
+    tension_results: Dict[str, Any],
+    output_path: Optional[Path] = None,
+    caption: str = "Hubble tension analysis",
+) -> str:
+    """
+    Export tension analysis results as a LaTeX table.
+
+    Parameters
+    ----------
+    tension_results : dict
+        {model_name: TensionResult} for each model
+    output_path : Path, optional
+        Where to save the .tex file
+    caption : str
+        Table caption
+
+    Returns
+    -------
+    str
+        LaTeX table code
+    """
+    lines = []
+    lines.append(r"\begin{table}[htbp]")
+    lines.append(r"\centering")
+    lines.append(fr"\caption{{{caption}}}")
+    lines.append(r"\label{tab:tension}")
+    lines.append(r"\begin{tabular}{lccc}")
+    lines.append(r"\hline\hline")
+    lines.append(r"Model & $\Delta H_0$ (km/s/Mpc) & $P(|\Delta H_0| < \epsilon)$ & Tension ($\sigma$) \\")
+    lines.append(r"\hline")
+
+    for model_name, tr in tension_results.items():
+        delta_h0 = f"${tr.delta_H0_mean:.2f} \\pm {tr.delta_H0_std:.2f}$"
+        prob = f"${tr.prob_resolution:.3f} \\pm {tr.prob_resolution_std:.3f}$"
+        sigma = f"${tr.sigma_tension:.1f}\\sigma$"
+
+        lines.append(f"{model_name} & {delta_h0} & {prob} & {sigma} \\\\")
+
+    lines.append(r"\hline\hline")
+    lines.append(r"\end{tabular}")
+    lines.append(fr"\tablefoot{{Resolution threshold $\epsilon = {tr.epsilon}$ km/s/Mpc.}}")
+    lines.append(r"\end{table}")
+
+    latex = "\n".join(lines)
+
+    if output_path:
+        with open(output_path, 'w') as f:
+            f.write(latex)
+        logger.info(f"Saved LaTeX table to {output_path}")
+
+    return latex

@@ -119,6 +119,8 @@ def comoving_distance(z: torch.Tensor, theta: torch.Tensor, n_points: int = None
     """
     Comoving distance χ(z) = (c/H0) ∫₀ᶻ dz'/E(z').
 
+    Fully vectorized implementation using Simpson's rule for better accuracy.
+
     Parameters
     ----------
     z : torch.Tensor
@@ -134,9 +136,13 @@ def comoving_distance(z: torch.Tensor, theta: torch.Tensor, n_points: int = None
         Comoving distance in Mpc, shape matches input batch dimension
     """
     n_points = n_points or config.physics.integration_points
+    # Ensure odd number for Simpson's rule
+    if n_points % 2 == 0:
+        n_points += 1
 
     # Handle scalar z
-    if z.dim() == 0:
+    scalar_z = z.dim() == 0
+    if scalar_z:
         z = z.unsqueeze(0)
 
     # Handle single theta
@@ -144,22 +150,58 @@ def comoving_distance(z: torch.Tensor, theta: torch.Tensor, n_points: int = None
     if single_theta:
         theta = theta.unsqueeze(0)
 
+    batch_size = theta.shape[0]
+    n_z = z.shape[0]
     H0 = theta[:, 0]  # (batch,)
 
-    # Vectorized integration for all z values
-    results = []
-    for zi in z:
-        z_grid = torch.linspace(0.0, zi.item(), n_points, device=DEVICE)
-        integrand = 1.0 / Ez_batch(z_grid, theta)  # (batch, n_points)
-        dz = zi / (n_points - 1)
-        chi = torch.trapezoid(integrand, z_grid)  # (batch,)
-        results.append(chi)
+    # Create integration grid for all z values at once: (n_z, n_points)
+    # Each row is linspace(0, z_i, n_points)
+    t = torch.linspace(0, 1, n_points, device=DEVICE)  # (n_points,)
+    z_grid = z.unsqueeze(1) * t.unsqueeze(0)  # (n_z, n_points)
 
-    chi = torch.stack(results, dim=1)  # (batch, n_z)
-    chi = chi * C_LIGHT / H0.unsqueeze(1)  # Convert to Mpc
+    # Compute E(z) for all (batch, n_z, n_points) combinations
+    # Reshape for batch computation
+    z_flat = z_grid.reshape(-1)  # (n_z * n_points,)
 
+    # Compute 1/E(z) for the entire grid
+    Om = theta[:, 1:2]    # (batch, 1)
+    Ode = theta[:, 2:3]   # (batch, 1)
+    w0 = theta[:, 3:4]    # (batch, 1)
+    wa = theta[:, 4:5]    # (batch, 1)
+
+    # Expand z_grid for batch: (batch, n_z, n_points)
+    z_expanded = z_grid.unsqueeze(0).expand(batch_size, -1, -1)
+    a = 1.0 / (1.0 + z_expanded)
+
+    # Reshape parameters for broadcasting: (batch, 1, 1)
+    Om = Om.unsqueeze(2)
+    Ode = Ode.unsqueeze(2)
+    w0 = w0.unsqueeze(2)
+    wa = wa.unsqueeze(2)
+
+    # E(z) computation
+    de_term = Ode * torch.exp(-3.0 * (1.0 + w0 + wa) * torch.log(a) + 3.0 * wa * (a - 1.0))
+    E_z = torch.sqrt(Om * (1.0 + z_expanded) ** 3 + de_term)  # (batch, n_z, n_points)
+    integrand = 1.0 / E_z  # (batch, n_z, n_points)
+
+    # Simpson's rule integration: (h/3) * [f0 + 4*f1 + 2*f2 + 4*f3 + ... + fn]
+    # Step size for each z value
+    h = z.unsqueeze(0) / (n_points - 1)  # (1, n_z)
+
+    # Simpson weights: 1, 4, 2, 4, 2, ..., 4, 1
+    weights = torch.ones(n_points, device=DEVICE)
+    weights[1:-1:2] = 4.0  # Odd indices
+    weights[2:-1:2] = 2.0  # Even indices (except first and last)
+
+    # Apply Simpson's rule
+    chi = (h.unsqueeze(2) / 3.0) * (integrand * weights.unsqueeze(0).unsqueeze(0)).sum(dim=2)
+    chi = chi * C_LIGHT / H0.unsqueeze(1)  # (batch, n_z)
+
+    # Handle output shape
     if single_theta:
         chi = chi.squeeze(0)
+    if scalar_z:
+        chi = chi.squeeze(-1)
 
     return chi
 
