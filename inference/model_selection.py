@@ -15,10 +15,10 @@ These are useful when evidence estimation is uncertain or computationally
 expensive, and provide different perspectives on model complexity penalties.
 """
 
-import torch
-import numpy as np
-from typing import Dict, NamedTuple, Optional
 from dataclasses import dataclass
+
+import numpy as np
+import torch
 
 from config import logger
 
@@ -40,7 +40,7 @@ class ModelSelectionResult:
     dic: float
     waic: float
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "model_name": self.model_name,
@@ -285,7 +285,7 @@ def compute_all_criteria(
 
 def compare_models(
     results: list[ModelSelectionResult],
-) -> Dict[str, Dict[str, float]]:
+) -> dict[str, dict[str, float]]:
     """
     Compare multiple models using all criteria.
 
@@ -320,7 +320,7 @@ def compare_models(
 
 def format_comparison_table(
     results: list[ModelSelectionResult],
-    comparison: Dict[str, Dict[str, float]],
+    comparison: dict[str, dict[str, float]],
 ) -> str:
     """
     Format comparison results as a readable table.

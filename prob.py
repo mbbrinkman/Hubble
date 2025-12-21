@@ -14,10 +14,10 @@ Usage:
     # or via CLI: hubble analyze
 """
 
-import torch
 import numpy as np
+import torch
 
-from config import config, paths, logger
+from config import config, logger, paths
 
 
 def load_posterior() -> torch.Tensor:
@@ -114,7 +114,7 @@ def compute_posterior_statistics(θ: torch.Tensor) -> dict:
     return stats
 
 
-def run(epsilon: float = 1.0) -> None:
+def run(epsilon: float = 1.0) -> dict:
     """
     Run the full analysis pipeline.
 

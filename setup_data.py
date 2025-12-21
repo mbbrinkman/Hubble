@@ -14,14 +14,13 @@ Usage:
     python setup_data.py --both      # Both
 """
 
-import numpy as np
-from pathlib import Path
-import urllib.request
 import ssl
-import warnings
+import urllib.request
+from pathlib import Path
 
-from config import DATA_RAW, DATA_PROC, logger
+import numpy as np
 
+from config import DATA_RAW, logger
 
 # =============================================================================
 # Real Data URLs
@@ -221,7 +220,7 @@ def save_synthetic_data(sn_data: dict, bao_data: dict) -> None:
         "wa": 0.0,
     }
     np.save(DATA_RAW / "true_params.npy", true_params)
-    logger.info(f"Saved true parameters for validation")
+    logger.info("Saved true parameters for validation")
 
 
 # =============================================================================
@@ -301,8 +300,8 @@ def setup_synthetic(
     logger.info(f"  H0 = {H0} km/s/Mpc")
     logger.info(f"  Om = {Om}")
     logger.info(f"  Ode = {1-Om}")
-    logger.info(f"  w0 = -1.0 (ΛCDM)")
-    logger.info(f"  wa = 0.0")
+    logger.info("  w0 = -1.0 (ΛCDM)")
+    logger.info("  wa = 0.0")
     logger.info("")
     logger.info("Use these to validate posterior recovery!")
 

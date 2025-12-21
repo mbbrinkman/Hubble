@@ -10,11 +10,10 @@ Two modes are supported:
 θ  = (H0, Ωm, Ωde, w0, wa)     shape (5,) or (batch, 5)
 """
 
-import torch
-import numpy as np
-from typing import Optional
 
-from config import config, paths, DEVICE, logger
+import torch
+
+from config import DEVICE, config, logger, paths
 
 # Speed of light in km/s
 C_LIGHT = 299792.458
@@ -32,8 +31,11 @@ def cmb_available() -> bool:
     global _cmb_available
     if _cmb_available is None:
         try:
-            import cosmopower as cp
-            _cmb_available = paths.cmb_emulator.exists()
+            import importlib.util
+            if importlib.util.find_spec("cosmopower") is not None:
+                _cmb_available = paths.cmb_emulator.exists()
+            else:
+                _cmb_available = False
         except ImportError:
             _cmb_available = False
     return _cmb_available
@@ -151,7 +153,7 @@ def comoving_distance(z: torch.Tensor, theta: torch.Tensor, n_points: int = None
         theta = theta.unsqueeze(0)
 
     batch_size = theta.shape[0]
-    n_z = z.shape[0]
+    z.shape[0]
     H0 = theta[:, 0]  # (batch,)
 
     # Create integration grid for all z values at once: (n_z, n_points)
@@ -161,7 +163,7 @@ def comoving_distance(z: torch.Tensor, theta: torch.Tensor, n_points: int = None
 
     # Compute E(z) for all (batch, n_z, n_points) combinations
     # Reshape for batch computation
-    z_flat = z_grid.reshape(-1)  # (n_z * n_points,)
+    z_grid.reshape(-1)  # (n_z * n_points,)
 
     # Compute 1/E(z) for the entire grid
     Om = theta[:, 1:2]    # (batch, 1)

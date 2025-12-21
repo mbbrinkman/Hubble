@@ -15,12 +15,13 @@ assuming they measure the same thing. Bayesian analysis tells you the
 probability they actually do measure the same thing.
 """
 
-import torch
-import numpy as np
-from typing import Dict, Optional, Tuple, List
 from dataclasses import dataclass
+from typing import Optional
 
-from config import DEVICE, logger
+import numpy as np
+import torch
+
+from config import logger
 from cosmology.base import CosmologicalModel
 
 
@@ -38,8 +39,8 @@ class TensionResult:
     delta_H0_median: float
 
     # Credible intervals for ΔH₀
-    delta_H0_ci68: Tuple[float, float]
-    delta_H0_ci95: Tuple[float, float]
+    delta_H0_ci68: tuple[float, float]
+    delta_H0_ci95: tuple[float, float]
 
     # Derived
     sigma_tension: float  # Effective tension in sigma
@@ -141,8 +142,8 @@ class TensionAnalyzer:
     def probability_curve(
         self,
         theta_samples: torch.Tensor,
-        epsilon_range: Optional[List[float]] = None
-    ) -> Dict[str, np.ndarray]:
+        epsilon_range: Optional[list[float]] = None
+    ) -> dict[str, np.ndarray]:
         """
         Compute P(|ΔH₀| < ε) for a range of ε values.
 
@@ -223,7 +224,7 @@ class TensionAnalyzer:
         theta_samples: torch.Tensor,
         early_only_samples: torch.Tensor,
         late_only_samples: torch.Tensor,
-    ) -> Dict:
+    ) -> dict:
         """
         Compare posterior constraints from different data subsets.
 
@@ -270,7 +271,7 @@ def compute_suspiciousness(
     theta_samples_1: torch.Tensor,
     theta_samples_2: torch.Tensor,
     model: CosmologicalModel,
-) -> Dict:
+) -> dict:
     """
     Compute the "suspiciousness" statistic for dataset tension.
 

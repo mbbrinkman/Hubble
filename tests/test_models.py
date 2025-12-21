@@ -4,10 +4,10 @@ test_models.py
 Unit tests for model building and loading.
 """
 
-import pytest
-import torch
 import sys
 from pathlib import Path
+
+import torch
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -50,8 +50,8 @@ class TestBuildFlow:
 
     def test_flow_can_compute_log_prob(self):
         """Flow should compute log probabilities."""
-        from models import build_flow
         from config import DEVICE
+        from models import build_flow
 
         flow = build_flow(dim=5)
 
@@ -65,8 +65,8 @@ class TestBuildFlow:
 
     def test_flow_on_correct_device(self):
         """Flow should be on the specified device."""
-        from models import build_flow
         from config import DEVICE
+        from models import build_flow
 
         flow = build_flow()
 
@@ -80,8 +80,8 @@ class TestFlowGradients:
 
     def test_gradients_flow_during_training(self):
         """Gradients should flow through the model."""
-        from models import build_flow
         from config import DEVICE
+        from models import build_flow
 
         flow = build_flow(dim=5)
 

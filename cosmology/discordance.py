@@ -17,8 +17,8 @@ is "real" in a Bayesian sense.
 Parameters: θ = (H₀_early, H₀_late, Ωm, Ωde, w₀, wa)
 """
 
+
 import torch
-from typing import Dict
 
 from cosmology.base import CosmologicalModel, Parameter
 
@@ -120,7 +120,7 @@ class DiscordanceModel(CosmologicalModel):
             return theta[1]
         return theta[:, 1]
 
-    def get_cosmology_params(self, theta: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def get_cosmology_params(self, theta: torch.Tensor) -> dict[str, torch.Tensor]:
         """Extract cosmological parameters from theta vector."""
         if theta.dim() == 1:
             return {

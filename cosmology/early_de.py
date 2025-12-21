@@ -15,8 +15,8 @@ This can bring early-universe H₀ into agreement with local measurements.
 Parameters: θ = (H₀, Ωm, Ωde, w₀, wa, f_ede, z_c)
 """
 
+
 import torch
-from typing import Dict
 
 from cosmology.base import CosmologicalModel, Parameter
 
@@ -147,7 +147,7 @@ class EarlyDarkEnergyModel(CosmologicalModel):
             return theta[0]
         return theta[:, 0]
 
-    def get_cosmology_params(self, theta: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def get_cosmology_params(self, theta: torch.Tensor) -> dict[str, torch.Tensor]:
         """Extract all cosmological parameters."""
         if theta.dim() == 1:
             return {

@@ -11,11 +11,11 @@ Usage:
     # or via CLI: hubble prep
 """
 
-import numpy as np
 import h5py
+import numpy as np
 import torch
 
-from config import paths, DEVICE, logger
+from config import DEVICE, logger, paths
 
 
 def validate_input_files() -> None:

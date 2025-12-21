@@ -7,8 +7,8 @@ Cosmological models for Hubble inference.
 from cosmology.base import CosmologicalModel
 from cosmology.concordance import ConcordanceModel
 from cosmology.discordance import DiscordanceModel
-from cosmology.wcdm import WCDMModel
 from cosmology.early_de import EarlyDarkEnergyModel
+from cosmology.wcdm import WCDMModel
 
 __all__ = [
     "CosmologicalModel",

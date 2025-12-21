@@ -12,16 +12,17 @@ to determine which best explains the data. The key outputs are:
 4. Tension resolution probability under each model
 """
 
-import torch
-import numpy as np
-from typing import Dict, List, Optional, Any
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
-import json
+from typing import Any, Optional
 
-from config import DEVICE, MODELS, paths, logger
+import numpy as np
+import torch
+
+from config import MODELS, logger
 from cosmology.base import CosmologicalModel
-from inference.evidence import estimate_log_evidence, EvidenceResult
+from inference.evidence import EvidenceResult, estimate_log_evidence
 from inference.tension import TensionAnalyzer, TensionResult
 
 
@@ -38,7 +39,7 @@ class ModelResult:
     def log_evidence(self) -> float:
         return self.evidence.log_evidence
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to serializable dictionary."""
         d = {
             "model_name": self.model.name,
@@ -63,10 +64,10 @@ class ModelResult:
 @dataclass
 class ComparisonResult:
     """Results from comparing multiple models."""
-    models: List[ModelResult]
-    bayes_factors: Dict[str, Dict[str, float]] = field(default_factory=dict)
-    model_probabilities: Dict[str, float] = field(default_factory=dict)
-    ranking: List[str] = field(default_factory=list)
+    models: list[ModelResult]
+    bayes_factors: dict[str, dict[str, float]] = field(default_factory=dict)
+    model_probabilities: dict[str, float] = field(default_factory=dict)
+    ranking: list[str] = field(default_factory=list)
     best_model: str = ""
 
     def __repr__(self) -> str:
@@ -105,7 +106,7 @@ class ComparisonResult:
 
         return "\n".join(lines)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to serializable dictionary."""
         return {
             "models": [m.to_dict() for m in self.models],
@@ -137,8 +138,8 @@ class ModelComparison:
     """
 
     def __init__(self):
-        self.models: Dict[str, CosmologicalModel] = {}
-        self.flows: Dict[str, Any] = {}
+        self.models: dict[str, CosmologicalModel] = {}
+        self.flows: dict[str, Any] = {}
         self._results: Optional[ComparisonResult] = None
 
     def add_model(
@@ -293,7 +294,7 @@ class ModelComparison:
         best = self._results.best_model
         best_prob = self._results.model_probabilities[best]
 
-        lines.append(f"\nConclusion:")
+        lines.append("\nConclusion:")
         lines.append(f"  Best model: {best} (P = {best_prob:.1%})")
 
         # Find discordance results if present
@@ -318,7 +319,7 @@ class ModelComparison:
 
 def quick_compare(
     x_obs: torch.Tensor,
-    model_names: List[str] = ["concordance", "discordance"],
+    model_names: list[str] = None,
     n_samples: int = 50000,
 ) -> ComparisonResult:
     """
@@ -341,6 +342,8 @@ def quick_compare(
     from cosmology import get_model
     from models import load_flow
 
+    if model_names is None:
+        model_names = ["concordance", "discordance"]
     comparison = ModelComparison()
 
     for name in model_names:
