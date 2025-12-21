@@ -11,12 +11,12 @@ Usage:
     # or via CLI: hubble simulate
 """
 
-import torch
 import sobol_seq
+import torch
 
 import forward
 import prep
-from config import config, paths, DEVICE, logger, set_seed
+from config import DEVICE, config, logger, paths, set_seed
 
 # Try to import tqdm for progress bars
 try:

@@ -23,10 +23,11 @@ Visualization:
     hubble plot-tension        # Plot tension probability curve
 """
 
-import click
 from pathlib import Path
 
-from config import logger, set_seed, RESULTS
+import click
+
+from config import RESULTS, logger, set_seed
 
 
 @click.group()
@@ -191,8 +192,6 @@ def train_model(model_name: str, n_samples: int, epochs: int, batch_size: int, l
 
     from cosmology import get_model
     from models import build_flow_for_model, save_flow
-    from config import config, paths, DEVICE
-    import forward
 
     logger.info("=" * 60)
     logger.info(f"Training flow for model: {model_name}")
@@ -280,10 +279,11 @@ def compare_models(models: tuple, n_samples: int, epsilon: float, output: str):
     - Tension resolution probability under each model
     """
     import torch
+
+    from config import DEVICE, paths
     from cosmology import get_model
-    from models import load_flow, check_flow_exists
-    from config import paths, DEVICE
     from inference.comparison import ModelComparison
+    from models import check_flow_exists, load_flow
 
     logger.info("=" * 60)
     logger.info("Bayesian Model Comparison")
@@ -341,10 +341,11 @@ def tension_analysis(model: str, n_samples: int, epsilon: float):
     - Resolution probability curve
     """
     import torch
+
+    from config import DEVICE, paths
     from cosmology import get_model
-    from models import load_flow, check_flow_exists
-    from config import paths, DEVICE
     from inference.tension import TensionAnalyzer
+    from models import check_flow_exists, load_flow
 
     logger.info("=" * 60)
     logger.info(f"Hubble Tension Analysis ({model})")
@@ -409,10 +410,11 @@ def tension_analysis(model: str, n_samples: int, epsilon: float):
 def plot_corner_cmd(model: str, output: str):
     """Generate a corner plot of posterior samples."""
     import torch
-    from cosmology import get_model
-    from models import load_flow, check_flow_exists
-    from config import paths, DEVICE, RESULTS
+
     from analysis.visualize import plot_corner
+    from config import DEVICE, paths
+    from cosmology import get_model
+    from models import check_flow_exists, load_flow
 
     if not check_flow_exists(model):
         raise click.ClickException(f"No trained flow for '{model}'.")
@@ -445,11 +447,12 @@ def plot_corner_cmd(model: str, output: str):
 def plot_tension_cmd(model: str, output: str):
     """Plot the tension resolution probability curve."""
     import torch
-    from cosmology import get_model
-    from models import load_flow, check_flow_exists
-    from config import paths, DEVICE, RESULTS
-    from inference.tension import TensionAnalyzer
+
     from analysis.visualize import plot_tension_curve
+    from config import DEVICE, paths
+    from cosmology import get_model
+    from inference.tension import TensionAnalyzer
+    from models import check_flow_exists, load_flow
 
     if not check_flow_exists(model):
         raise click.ClickException(f"No trained flow for '{model}'.")
@@ -485,7 +488,8 @@ def plot_tension_cmd(model: str, output: str):
 def info():
     """Display configuration and system information."""
     import torch
-    from config import config, DEVICE, paths, ROOT
+
+    from config import DEVICE, ROOT, config, paths
 
     click.echo("\nHubble Configuration")
     click.echo("=" * 50)
@@ -496,17 +500,17 @@ def info():
     if torch.cuda.is_available():
         click.echo(f"CUDA device: {torch.cuda.get_device_name(0)}")
 
-    click.echo(f"\nFlow architecture:")
+    click.echo("\nFlow architecture:")
     click.echo(f"  Hidden dim: {config.flow.hidden_dim}")
     click.echo(f"  Layers: {config.flow.n_layers}")
 
-    click.echo(f"\nTraining config:")
+    click.echo("\nTraining config:")
     click.echo(f"  Default samples: {config.training.n_train_samples:,}")
     click.echo(f"  Batch size: {config.training.batch_size}")
     click.echo(f"  Learning rate: {config.training.learning_rate}")
     click.echo(f"  Epochs: {config.training.n_epochs}")
 
-    click.echo(f"\nInference config:")
+    click.echo("\nInference config:")
     click.echo(f"  Posterior samples: {config.inference.n_posterior_samples:,}")
 
     # Available models
@@ -518,7 +522,7 @@ def info():
     available = list_available_flows()
     click.echo(f"Trained flows: {', '.join(available) if available else 'None'}")
 
-    click.echo(f"\nData paths:")
+    click.echo("\nData paths:")
     click.echo(f"  Raw: {paths.pantheon_data.parent}")
     click.echo(f"  Processed: {paths.obs_h5.parent}")
     click.echo(f"  Models: {paths.flow_weights.parent}")

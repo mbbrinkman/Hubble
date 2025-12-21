@@ -14,11 +14,11 @@ This test runs through the full workflow:
 Run with: pytest tests/test_end_to_end.py -v
 """
 
+import sys
+from pathlib import Path
+
 import pytest
 import torch
-import numpy as np
-from pathlib import Path
-import sys
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -30,14 +30,18 @@ class TestEndToEnd:
     @pytest.fixture(autouse=True)
     def setup(self):
         """Set up test fixtures."""
-        from config import DEVICE, DATA_RAW, DATA_PROC
+        from config import DATA_PROC, DATA_RAW, DEVICE
         self.device = DEVICE
         self.data_raw = DATA_RAW
         self.data_proc = DATA_PROC
 
     def test_01_generate_synthetic_data(self):
         """Test synthetic data generation."""
-        from setup_data import generate_synthetic_sn_data, generate_synthetic_bao_data, save_synthetic_data
+        from setup_data import (
+            generate_synthetic_bao_data,
+            generate_synthetic_sn_data,
+            save_synthetic_data,
+        )
 
         # Generate with known parameters
         sn_data = generate_synthetic_sn_data(
@@ -128,8 +132,8 @@ class TestEndToEnd:
 
     def test_05_summary_vector(self):
         """Test summary vector construction."""
-        import prep
         import forward
+        import prep
 
         obs = prep.load_observations()
         theta = torch.tensor([70.0, 0.3, 0.7, -1.0, 0.0], device=self.device)
@@ -145,8 +149,8 @@ class TestEndToEnd:
 
     def test_06_chi_squared(self):
         """Test chi-squared calculation."""
-        import prep
         import forward
+        import prep
 
         obs = prep.load_observations()
 
@@ -178,10 +182,10 @@ class TestEndToEnd:
 
     def test_08_mini_training(self):
         """Test a minimal training run."""
-        import prep
         import forward
-        from models import build_flow
+        import prep
         from config import DEVICE
+        from models import build_flow
 
         obs = prep.load_observations()
 
@@ -222,10 +226,10 @@ class TestEndToEnd:
 
     def test_09_posterior_sampling(self):
         """Test posterior sampling from trained flow."""
-        import prep
         import forward
-        from models import build_flow
+        import prep
         from config import DEVICE
+        from models import build_flow
 
         obs = prep.load_observations()
 

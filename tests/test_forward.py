@@ -4,16 +4,16 @@ test_forward.py
 Unit tests for the forward model (cosmological calculations).
 """
 
-import pytest
-import torch
 import sys
 from pathlib import Path
+
+import torch
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from forward import Ez, comoving_distance, volume_distance, luminosity_distance
 from config import DEVICE
+from forward import Ez, comoving_distance, luminosity_distance, volume_distance
 
 
 class TestEz:

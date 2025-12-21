@@ -10,12 +10,13 @@ Generates publication-quality plots:
 - Resolution probability curves
 """
 
-import numpy as np
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
 import warnings
+from pathlib import Path
+from typing import Any, Optional
 
-from config import paths, logger
+import numpy as np
+
+from config import logger
 from cosmology.base import CosmologicalModel
 
 # Lazy import matplotlib to avoid issues if not installed
@@ -30,8 +31,8 @@ def _get_plt():
             import matplotlib.pyplot as plt
             plt.style.use('seaborn-v0_8-whitegrid')
             _plt = plt
-        except ImportError:
-            raise ImportError("matplotlib required for plotting. Install with: pip install matplotlib")
+        except ImportError as e:
+            raise ImportError("matplotlib required for plotting. Install with: pip install matplotlib") from e
     return _plt
 
 
@@ -42,7 +43,7 @@ def _get_corner():
             import corner
             _corner = corner
         except ImportError:
-            warnings.warn("corner package not installed. Install with: pip install corner")
+            warnings.warn("corner package not installed. Install with: pip install corner", stacklevel=2)
             _corner = None
     return _corner
 
@@ -50,7 +51,7 @@ def _get_corner():
 def plot_corner(
     theta_samples,
     model: CosmologicalModel,
-    truths: Optional[List[float]] = None,
+    truths: Optional[list[float]] = None,
     output_path: Optional[Path] = None,
     title: Optional[str] = None,
     **kwargs
@@ -78,11 +79,11 @@ def plot_corner(
     matplotlib.figure.Figure
         The corner plot figure
     """
-    plt = _get_plt()
+    _get_plt()
     corner = _get_corner()
 
     if corner is None:
-        warnings.warn("corner package not available, skipping corner plot")
+        warnings.warn("corner package not available, skipping corner plot", stacklevel=2)
         return None
 
     # Convert to numpy
@@ -117,7 +118,7 @@ def plot_corner(
 
 
 def plot_tension_curve(
-    tension_curve: Dict[str, np.ndarray],
+    tension_curve: dict[str, np.ndarray],
     output_path: Optional[Path] = None,
     title: str = "Hubble Tension Resolution Probability",
 ) -> Any:
@@ -232,9 +233,9 @@ def plot_model_comparison(
 
 
 def plot_H0_posteriors(
-    posteriors: Dict[str, Tuple[np.ndarray, CosmologicalModel]],
+    posteriors: dict[str, tuple[np.ndarray, CosmologicalModel]],
     output_path: Optional[Path] = None,
-    reference_values: Optional[Dict[str, float]] = None,
+    reference_values: Optional[dict[str, float]] = None,
 ) -> Any:
     """
     Plot H₀ posterior distributions from multiple models.
@@ -355,7 +356,7 @@ def plot_delta_H0_distribution(
     ax.axvline(mean_delta, color='blue', linestyle='--', label=f'Mean: {mean_delta:.2f}')
 
     textstr = f'ΔH₀ = {mean_delta:.2f} ± {std_delta:.2f}\nP(resolution) = {prob_res:.1%}'
-    props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
+    props = {'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.8}
     ax.text(0.95, 0.95, textstr, transform=ax.transAxes, fontsize=12,
            verticalalignment='top', horizontalalignment='right', bbox=props)
 
@@ -379,7 +380,7 @@ def plot_delta_H0_distribution(
 # =============================================================================
 
 def export_posterior_table(
-    stats: Dict[str, Dict[str, float]],
+    stats: dict[str, dict[str, float]],
     model_name: str = "Model",
     output_path: Optional[Path] = None,
     caption: str = "Posterior parameter constraints",
@@ -505,7 +506,7 @@ def export_model_comparison_table(
 
 
 def export_tension_table(
-    tension_results: Dict[str, Any],
+    tension_results: dict[str, Any],
     output_path: Optional[Path] = None,
     caption: str = "Hubble tension analysis",
 ) -> str:

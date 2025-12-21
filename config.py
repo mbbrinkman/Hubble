@@ -5,11 +5,11 @@ Centralized configuration for paths, hyperparameters, and device settings.
 All other modules should import from here instead of hardcoding values.
 """
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+
 import torch
-import logging
 
 # ---------------------------------------------------------------------------
 # Path Configuration
@@ -79,10 +79,10 @@ class PhysicsConfig:
     """Physics model configuration."""
     integration_points: int = 128
     # Parameter bounds: θ = (H0, Ωm, Ωde, w0, wa)
-    theta_min: List[float] = field(default_factory=lambda: [50.0, 0.30, 0.60, -1.0, 0.0])
-    theta_max: List[float] = field(default_factory=lambda: [90.0, 0.40, 0.70, -0.5, 0.5])
+    theta_min: list[float] = field(default_factory=lambda: [50.0, 0.30, 0.60, -1.0, 0.0])
+    theta_max: list[float] = field(default_factory=lambda: [90.0, 0.40, 0.70, -0.5, 0.5])
     # Parameter names for reference
-    param_names: List[str] = field(default_factory=lambda: ["H0", "Ωm", "Ωde", "w0", "wa"])
+    param_names: list[str] = field(default_factory=lambda: ["H0", "Ωm", "Ωde", "w0", "wa"])
 
 @dataclass
 class Config:

@@ -18,15 +18,15 @@ Usage:
     # or via CLI: hubble train
 """
 
-import torch
-from torch.utils.data import DataLoader, TensorDataset, random_split
-from torch.optim.lr_scheduler import CosineAnnealingLR
 from pathlib import Path
-from typing import Optional, Dict, Any
-import json
+from typing import Any
 
+import torch
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.utils.data import DataLoader, TensorDataset, random_split
+
+from config import MODELS, config, logger, paths, set_seed
 from models import build_flow, save_flow
-from config import config, paths, DEVICE, MODELS, logger, set_seed
 
 # Try to import tqdm, fall back to simple progress
 try:
@@ -150,7 +150,7 @@ def train_flow(
     checkpoint_every: int = 5,
     resume: bool = True,
     model_name: str = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Train the normalizing flow on the provided data.
 
@@ -333,7 +333,7 @@ def train_flow(
         "early_stopped": early_stopping.should_stop,
         "model_name": model_name,
     }
-    save_flow(flow, metadata, model_name=model_name)
+    save_flow(flow, model_name=model_name, metadata=metadata)
 
     # Clean up checkpoint
     if checkpoint_path.exists():

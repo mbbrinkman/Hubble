@@ -19,12 +19,12 @@ Usage:
 """
 
 import warnings
+
 import torch
 
 import forward
 import prep
-from config import paths, DEVICE, logger
-
+from config import DEVICE, logger, paths
 
 # Fiducial cosmological parameters for summary vector construction
 # These should be updated based on external constraints (e.g., Planck best-fit)

@@ -10,12 +10,13 @@ Each model defines:
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import List, Dict, Callable, Optional, Tuple
-import torch
-import numpy as np
+from dataclasses import dataclass
+from typing import Optional
 
-from config import DEVICE, logger
+import numpy as np
+import torch
+
+from config import DEVICE
 
 
 @dataclass
@@ -82,7 +83,7 @@ class CosmologicalModel(ABC):
     """
 
     def __init__(self):
-        self._parameters: List[Parameter] = []
+        self._parameters: list[Parameter] = []
         self._setup_parameters()
 
     @property
@@ -108,7 +109,7 @@ class CosmologicalModel(ABC):
         pass
 
     @property
-    def parameters(self) -> List[Parameter]:
+    def parameters(self) -> list[Parameter]:
         """List of model parameters."""
         return self._parameters
 
@@ -118,12 +119,12 @@ class CosmologicalModel(ABC):
         return len(self._parameters)
 
     @property
-    def param_names(self) -> List[str]:
+    def param_names(self) -> list[str]:
         """List of parameter names."""
         return [p.name for p in self._parameters]
 
     @property
-    def param_symbols(self) -> List[str]:
+    def param_symbols(self) -> list[str]:
         """List of parameter symbols (for plotting)."""
         return [p.symbol for p in self._parameters]
 
@@ -217,7 +218,7 @@ class CosmologicalModel(ABC):
         pass
 
     @abstractmethod
-    def get_cosmology_params(self, theta: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def get_cosmology_params(self, theta: torch.Tensor) -> dict[str, torch.Tensor]:
         """
         Convert parameter vector to dictionary of cosmological parameters.
 

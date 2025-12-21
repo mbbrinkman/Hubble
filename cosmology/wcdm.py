@@ -13,8 +13,8 @@ from ΛCDM, which could reconcile early and late H₀ measurements.
 Parameters: θ = (H₀, Ωm, Ωde, w₀, wa)
 """
 
+
 import torch
-from typing import Dict
 
 from cosmology.base import CosmologicalModel, Parameter
 
@@ -103,7 +103,7 @@ class WCDMModel(CosmologicalModel):
             return theta[0]
         return theta[:, 0]
 
-    def get_cosmology_params(self, theta: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def get_cosmology_params(self, theta: torch.Tensor) -> dict[str, torch.Tensor]:
         """Extract cosmological parameters."""
         if theta.dim() == 1:
             return {

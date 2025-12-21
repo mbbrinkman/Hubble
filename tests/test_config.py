@@ -4,7 +4,6 @@ test_config.py
 Unit tests for configuration module.
 """
 
-import pytest
 import sys
 from pathlib import Path
 
@@ -30,7 +29,7 @@ class TestPaths:
 
     def test_directories_created(self):
         """Data directories should be created on import."""
-        from config import DATA_RAW, DATA_PROC, MODELS, RESULTS
+        from config import DATA_PROC, DATA_RAW, MODELS, RESULTS
         assert DATA_RAW.exists()
         assert DATA_PROC.exists()
         assert MODELS.exists()
@@ -82,6 +81,7 @@ class TestDevice:
     def test_device_is_valid(self):
         """DEVICE should be a valid torch device."""
         import torch
+
         from config import DEVICE
         assert isinstance(DEVICE, torch.device)
         assert DEVICE.type in ["cpu", "cuda", "mps"]
@@ -99,6 +99,7 @@ class TestSeed:
     def test_set_seed(self):
         """set_seed should make torch operations deterministic."""
         import torch
+
         from config import set_seed
 
         set_seed(42)
@@ -112,6 +113,7 @@ class TestSeed:
     def test_different_seeds_give_different_results(self):
         """Different seeds should give different random values."""
         import torch
+
         from config import set_seed
 
         set_seed(42)

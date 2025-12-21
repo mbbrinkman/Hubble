@@ -11,12 +11,12 @@ This is the key quantity for Bayesian model comparison.
 We estimate it using importance sampling from the flow posterior.
 """
 
-import torch
-import numpy as np
-from typing import Optional, Tuple, Dict
 from dataclasses import dataclass
 
-from config import DEVICE, logger
+import numpy as np
+import torch
+
+from config import logger
 from cosmology.base import CosmologicalModel
 
 
@@ -169,7 +169,7 @@ def compute_evidence_ratio(
     model2: CosmologicalModel,
     x_obs: torch.Tensor,
     n_samples: int = 50000,
-) -> Dict:
+) -> dict:
     """
     Compute the Bayes factor (evidence ratio) between two models.
 

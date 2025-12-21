@@ -13,8 +13,8 @@ Usage:
 
 import torch
 
+from config import DEVICE, config, logger, paths, set_seed
 from models import load_flow
-from config import config, paths, DEVICE, logger, set_seed
 
 
 def load_observed_summary() -> torch.Tensor:

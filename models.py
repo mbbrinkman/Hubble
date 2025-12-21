@@ -7,15 +7,15 @@ This ensures flow architecture is defined in ONE place only.
 Supports multiple cosmological models with different parameter dimensions.
 """
 
+from pathlib import Path
+from typing import Union
+
 import torch
-import nflows
-from nflows.transforms import MaskedAffineAutoregressiveTransform, CompositeTransform
 from nflows.distributions import StandardNormal
 from nflows.flows import Flow
-from pathlib import Path
-from typing import Optional, Union
+from nflows.transforms import CompositeTransform, MaskedAffineAutoregressiveTransform
 
-from config import config, paths, DEVICE, MODELS, logger
+from config import DEVICE, MODELS, config, logger, paths
 
 
 def build_flow(
